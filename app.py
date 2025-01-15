@@ -1,19 +1,22 @@
 import chromadb
 import streamlit as st
 import json
-from functions import obtenerDatos
+from obtenerDatos import obtenerDatos
 from streamlit_card import card
 
 marcas = ['Dodge', 'Chevrolet', 'Lotus', 'Porshe', 'Alfa Romeo', 'Ford', 'Toyota', 'Honda', 'Ferrari',
           'Lamborghini', 'BMW', 'Nissan', 'Subaru', 'Mercedes-Benz', 'McLaren', 'Fiat', 'Audi', 'Jaguar']
 
+if 'resultado' not in st.session_state:
+    st.session_state.resultado = []
 
-client = chromadb.PersistentClient(path="chroma")
+client = chromadb.PersistentClient(path="DB-chroma")
 
 collection = client.get_or_create_collection("Carros")
 
-#
+
 carrosData = obtenerDatos()
+
 idCount = 0
 for carro in carrosData:
     collection.upsert(
@@ -36,7 +39,8 @@ for carro in carrosData:
     )
     idCount += 1
 
-
+st.title("Testing Chroma DB - Vectorial")
+st.subheader("Busca tu carro ideal")
 with st.form("my_form"):
     potencia = st.slider("Potencia", 10, 1000)
 
@@ -56,22 +60,24 @@ with st.form("my_form"):
                 (not precio or metadata.get("precio", float("inf")) <= precio) and
                 (not selectMarca or metadata.get("marca") == selectMarca)
             ):
+                st.session_state['resultado'] = resultados_filtrados
                 resultados_filtrados.append(metadata)
-
-        # Mostrar resultados en Streamlit
-        if resultados_filtrados:
-            st.write("Resultados encontrados:")
-            for result in resultados_filtrados:
-                st.write(result)
-                card(
-                    image=result.get(
-                        "imagen_url", "https://static.vecteezy.com/system/resources/previews/004/639/366/non_2x/error-404-not-found-text-design-vector.jpg"),
-                    title=result.get("marca", "Marca no disponible"),
-                    text=(result.get("modelo", "Modelo no disponible"),
-                          f'${result.get("precio", "Precio no Disponible")}')
-                )
-        else:
-            st.write("No se encontraron resultados.")
+            else:
+                st.session_state['resultado'] = resultados_filtrados
 
 
-st.write("Outside the form")
+# Mostrar resultados en Streamlit
+if st.session_state['resultado']:
+    st.write("Resultados encontrados:")
+    for result in st.session_state['resultado']:
+        card(
+            image=result.get(
+                "imagen_url", "https://static.vecteezy.com/system/resources/previews/004/639/366/non_2x/error-404-not-found-text-design-vector.jpg"),
+            title=result.get("marca", "Marca no disponible"),
+            text=(result.get("modelo", "Modelo no disponible"),
+                  f'${result.get("precio", "Precio no Disponible")}'),
+            on_click=lambda: st.write(
+                f"{result.get('descripcion', 'Descripción no Disponible')}"),
+        )
+else:
+    st.write("No se encontraron resultados.")
